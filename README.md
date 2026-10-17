@@ -42,6 +42,48 @@ tests/                          # Domain, service and API tests
 The domain and application layers have no framework/DB dependencies. The outside
 world plugs in through the ports defined in `app/domain/ports.py`.
 
+## Request flow (ASGI)
+
+Every HTTP request travels through an ASGI pipeline before it reaches a router:
+
+```
+Client ──HTTP──> ASGI server (Uvicorn) ──ASGI calls──> ASGI app (FastAPI) ──> your routers
+```
+
+- **ASGI** (Asynchronous Server Gateway Interface) is the async contract between a
+  web server and a Python web app. The app is an async callable
+  `async def app(scope, receive, send)`; `receive`/`send` are awaitables used to
+  stream request/response events.
+- **Uvicorn** is the ASGI **server**: it owns a single-threaded **event loop**
+  (`asyncio`), listens on the socket, parses HTTP, and drives the app. Each
+  request becomes a lightweight coroutine/task on that loop rather than a thread.
+- **FastAPI** is the ASGI **app**: it dispatches through middleware and
+  dependencies to the matching router handler.
+- **Event loop & concurrency:** at every `await` (e.g. awaiting the DB), the task
+  yields control so the loop can progress other requests. Concurrency comes from
+  overlapping I/O waits on one thread — so blocking work must never run directly
+  on the loop. Plain `def` handlers are offloaded to a threadpool; `async def`
+  handlers run on the loop.
+- **Lifespan:** Uvicorn emits ASGI `lifespan` startup/shutdown events on the same
+  loop — that is where [`app/main.py`](app/main.py) runs Liquibase migrations
+  before serving traffic.
+
+```mermaid
+flowchart LR
+    Client -->|HTTP| Uvicorn[Uvicorn ASGI server + asyncio event loop]
+    Uvicorn -->|scope, receive, send| FastAPI[FastAPI ASGI app]
+    FastAPI --> MW[RequestLoggingMiddleware]
+    MW --> Router[employee_router / department_router]
+    Router --> Service[EmployeeService]
+    Service --> Repo[SQLAlchemy repositories]
+    Repo -->|await I/O| DB[(PostgreSQL)]
+```
+
+`RequestLoggingMiddleware` ([`middleware.py`](app/adapters/inbound/http/middleware.py))
+sits at the top of this pipeline: it assigns an `x-request-id`, awaits
+`call_next(request)` (a yield point for the event loop), and logs method, path,
+status, and latency for each request.
+
 ## Prerequisites
 
 - Python 3.12+
