@@ -1,0 +1,42 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-create-employee-departments
+      author: system
+      changes:
+        - createTable:
+            tableName: employee_departments
+            columns:
+              - column:
+                  name: employee_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: department_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+        - addPrimaryKey:
+            tableName: employee_departments
+            columnNames: employee_id, department_id
+            constraintName: pk_employee_departments
+        - addForeignKeyConstraint:
+            baseTableName: employee_departments
+            baseColumnNames: employee_id
+            referencedTableName: employees
+            referencedColumnNames: id
+            constraintName: fk_empdept_employee
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: employee_departments
+            baseColumnNames: department_id
+            referencedTableName: departments
+            referencedColumnNames: id
+            constraintName: fk_empdept_department
+            onDelete: CASCADE
+        - createIndex:
+            tableName: employee_departments
+            indexName: ix_empdept_department
+            columns:
+              - column:
+                  name: department_id

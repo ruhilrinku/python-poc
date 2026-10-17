@@ -1,0 +1,46 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-seed-departments
+      author: system
+      context: seed
+      changes:
+        - insert:
+            tableName: departments
+            columns:
+              - column:
+                  name: department_code
+                  value: ENG
+              - column:
+                  name: name
+                  value: Engineering
+              - column:
+                  name: description
+                  value: Engineering department
+        - insert:
+            tableName: departments
+            columns:
+              - column:
+                  name: department_code
+                  value: OPS
+              - column:
+                  name: name
+                  value: Operations
+              - column:
+                  name: description
+                  value: Operations department
+        - insert:
+            tableName: departments
+            columns:
+              - column:
+                  name: department_code
+                  value: HR
+              - column:
+                  name: name
+                  value: Human Resources
+              - column:
+                  name: description
+                  value: Human Resources department
+      rollback:
+        - delete:
+            tableName: departments
+            where: department_code IN ('ENG', 'OPS', 'HR')
